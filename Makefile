@@ -3,7 +3,7 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := FastLED-idf
+PROJECT_NAME := IOT-Sign
 
 include $(IDF_PATH)/make/project.mk
 

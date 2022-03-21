@@ -37,21 +37,104 @@
 
 #define LED_DISPLAY_TASK_STACK_SIZE   4096
 
+typedef struct
+{
+   uint8_t x;   /* data */
+   uint8_t y;
+   CRGB colour;
+   const bitmap_font *font;
+   const char* string;
+}text_t;
+
+
 
 static CRGB gLeds[NUM_LEDS];
 static TaskHandle_t gLedHandle = NULL;
 static QueueHandle_t gLedQueue;
 
 static void LedDisplayTask(void *pvParameters); 
+static esp_err_t WriteText(text_t*);
+
+
+/**
+ * @brief Write Text to Display
+ * 
+ * @param pText 
+ */
+static esp_err_t WriteText(text_t *pText)
+{
+   esp_err_t err= ESP_OK;
+   /*
+    * Check x, y value fall within matrix
+    */
+   if ((pText->x > LED_COL) || (pText->y > LED_ROW))
+   {
+      err = ESP_ERR_INVALID_ARG;
+   }
+
+   if (ESP_OK == err)
+   {
+      /*
+       * For each character in the string
+       */
+      for(uint8_t c = 0; c < strlen(pText->string); c++)
+      {
+         /*
+          * For each row in char
+          */
+         for (uint8_t xchr = c * pText->font->Width ;  xchr <  (c * pText->font->Width) + pText->font->Width ; xchr++)
+         {
+            uint8_t xPxl = xchr + pText->x;
+            
+             
+            if (xPxl > LED_COL){
+               //printf("x position too large \n");
+               break;
+            }
+  
+            /*
+             * For each column in char
+             */
+            for(uint8_t ychr = 0; ychr < pText->font->Height; ychr++)
+            {
+               uint8_t yPxl = ychr + pText->y;
+               
+               if (yPxl > LED_ROW){
+                  //printf("y position too large \n");
+                  break;
+               }
+               //printf("x = %d, y = %d index = %d", xchr + pText->x, ychr + pText->y, XY(xchr + pText->x,ychr + pText->y));
+         
+               if (getBitmapFontPixelAtXY(pText->string[c], xchr % pText->font->Width, ychr, pText->font))
+               {
+                  //printf(" x\n");
+                  gLeds[255u - XY(xPxl, yPxl)] = pText->colour;
+               }
+               else
+               {
+                  //printf("\n");
+               }
+            }
+         }
+      }
+   } 
+
+   return err;  
+}
+
 
 
 static void LedDisplayTask(void *pvParameters) 
 {
  
-    ledDisplayQNFO_t ledDisplayNFo;
-    char myString[] = "TEST!";
-    const bitmap_font * pMyFont = fontLookup(font3x5) ;
-
+   ledDisplayQNFO_t ledDisplayNFo;
+   text_t myTest;
+   
+   myTest.colour = CRGB::BlueViolet;
+   myTest.font = fontLookup(font5x7);
+   myTest.string = "203451";
+   myTest.x = 2;
+   myTest.y = 4;
 
     printf("LED Display Task Started \n");
     printf("------------------------\n\n");
@@ -73,32 +156,26 @@ static void LedDisplayTask(void *pvParameters)
     gLeds[0] = CRGB::Blue;
     FastLED.show();
 
-   uint8_t x,y;
-   for(;;)
+   for(;;){
+   for (uint8_t i= 0; i<32;i++)
    {
-      for(uint8_t c = 0; c < 5; c++)
-      {
-         for (x = c * pMyFont->Width ;  x <  (c * pMyFont->Width) + pMyFont->Width ; x++)
-         {
-            for(y=0; y<LED_ROW; y++)
-            {
-               printf("x = %d, y = %d index = %d", x, y, XY(x,y));
-         
-               if (getBitmapFontPixelAtXY(myString[c], x % pMyFont->Width, y, pMyFont))
-               {
-                  printf(" x\n");
-                  gLeds[255 - XY(x,y)] = CRGB::Green;
-               }
-       
-            }
-         }
-      }
+      myTest.x = i;
+      WriteText(&myTest);
       FastLED.show();
-      vTaskDelay(pdMS_TO_TICKS(500));
+      //vTaskDelay(pdMS_TO_TICKS(2));
       FastLED.clear();
-      
+      vTaskDelay(pdMS_TO_TICKS(100));
    }
-
+   for (uint8_t i = 32; i>1;i--)
+   {
+      myTest.x = i;
+      WriteText(&myTest);
+      FastLED.show();
+      //vTaskDelay(pdMS_TO_TICKS(2));
+      FastLED.clear();
+      vTaskDelay(pdMS_TO_TICKS(100));
+   }}
+   
 
     while(1)
     {

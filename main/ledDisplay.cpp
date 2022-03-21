@@ -14,7 +14,7 @@
 #include "esp_spi_flash.h"
 #include "ledDisplay.hpp" // own header
 #include "XYMatrix.h"     // convert x, y to index into LED array.
-
+#include "MatrixFontCommon.h"
 
 #include "FastLED.h"
 #include "FX.h"
@@ -49,6 +49,9 @@ static void LedDisplayTask(void *pvParameters)
 {
  
     ledDisplayQNFO_t ledDisplayNFo;
+    char myString[] = "TEST!";
+    const bitmap_font * pMyFont = fontLookup(font3x5) ;
+
 
     printf("LED Display Task Started \n");
     printf("------------------------\n\n");
@@ -69,16 +72,42 @@ static void LedDisplayTask(void *pvParameters)
     printf("Blue \n");
     gLeds[0] = CRGB::Blue;
     FastLED.show();
-    
+
+   uint8_t x,y;
+   for(;;)
+   {
+      for(uint8_t c = 0; c < 5; c++)
+      {
+         for (x = c * pMyFont->Width ;  x <  (c * pMyFont->Width) + pMyFont->Width ; x++)
+         {
+            for(y=0; y<LED_ROW; y++)
+            {
+               printf("x = %d, y = %d index = %d", x, y, XY(x,y));
+         
+               if (getBitmapFontPixelAtXY(myString[c], x % pMyFont->Width, y, pMyFont))
+               {
+                  printf(" x\n");
+                  gLeds[255 - XY(x,y)] = CRGB::Green;
+               }
+       
+            }
+         }
+      }
+      FastLED.show();
+      vTaskDelay(pdMS_TO_TICKS(500));
+      FastLED.clear();
+      
+   }
+
 
     while(1)
     {
          if  (pdPASS ==  xQueueReceive(gLedQueue, &ledDisplayNFo,(TickType_t) pdMS_TO_TICKS(1000)) )
          {
-            printf("LED Display Q Received\n");
+            //printf("LED Display Q Received\n");
          }else
          {
-            printf("LED Display Q TO\n");
+            //printf("LED Display Q TO\n");
          }
     }
 }
@@ -94,12 +123,12 @@ void initLEDDisplay()
     // The WS2812 family uses the RMT driver
     FastLED.addLeds<LED_TYPE, DATA_PIN>(gLeds, NUM_LEDS);
 
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    //vTaskDelay(pdMS_TO_TICKS(1000));
 
     FastLED.clear();
     FastLED.show();
 
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    //vTaskDelay(pdMS_TO_TICKS(1000));
 
     printf("Set Power\n");
     // I have a 2A power supply, although it's 12v

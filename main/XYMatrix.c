@@ -15,6 +15,8 @@
 //             This is a slightly more advanced technique, and 
 //             it REQUIRES SPECIAL ADDITIONAL setup, described below.
 
+#include "XYMatrix.h"
+#include "esp_system.h"
 
 // Params for width and height
 static  uint8_t gMatrixWidth = 32u;
@@ -85,7 +87,7 @@ uint16_t XY( uint8_t x, uint8_t y)
     if (gMatrixHeight == false) {
       i = (y * gMatrixWidth) + x;
     } else {
-      i = kMatrixHeight * (gMatrixWidth - (x+1))+y;
+      i = gMatrixHeight * (gMatrixWidth - (x+1))+y;
     }
   }
 
@@ -165,8 +167,8 @@ void SetMatixDimension(uint8_t x, uint8_t y)
 
 uint16_t XYsafe( uint8_t x, uint8_t y)
 {
-  if( x >= kMatrixWidth) return -1;
-  if( y >= kMatrixHeight) return -1;
+  if( x >= gMatrixWidth) return -1;
+  if( y >= gMatrixWidth) return -1;
   return XY(x,y);
 }
 

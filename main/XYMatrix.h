@@ -2,9 +2,12 @@
 #define XYMATRX_H
 
 /* Includes *****************************************************************/
+#include "esp_system.h"
 /* Defines ******************************************************************/
 /* Public Functions**********************************************************/
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @brief Set the Matix Dimension object
  * 
@@ -18,4 +21,8 @@ void SetMatixDimension(uint8_t x, uint8_t y);
  * 
  */
 uint16_t XY( uint8_t x, uint8_t y);
+
+#ifdef __cplusplus
+}
+#endif
 #endif

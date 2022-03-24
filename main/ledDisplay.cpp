@@ -37,6 +37,15 @@
 
 #define LED_DISPLAY_TASK_STACK_SIZE   4096
 
+
+typedef enum
+{
+   LEFT,
+   RIGHT,
+   UP,
+   DOWN
+}scroll_dir_e;
+
 typedef struct
 {
    uint8_t x;   /* data */
@@ -46,6 +55,20 @@ typedef struct
    const char* string;
 }text_t;
 
+typedef struct textFade_t : text_t
+{
+   uint8_t fade;
+}textFade_t;
+
+typedef struct
+{
+   scroll_dir_e dir;
+   uint8_t msDly;
+   uint8_t y;
+   CRGB colour;
+   const bitmap_font *font;
+   const char* string;
+}textScroll_t;
 
 
 static CRGB gLeds[NUM_LEDS];
@@ -54,6 +77,8 @@ static QueueHandle_t gLedQueue;
 
 static void LedDisplayTask(void *pvParameters); 
 static esp_err_t WriteText(text_t*);
+static esp_err_t ScrollText(textScroll_t *pTextScroll);
+static esp_err_t FadeOutText(textFade_t *pText);
 
 
 /**
@@ -85,9 +110,8 @@ static esp_err_t WriteText(text_t *pText)
          for (uint8_t xchr = c * pText->font->Width ;  xchr <  (c * pText->font->Width) + pText->font->Width ; xchr++)
          {
             uint8_t xPxl = xchr + pText->x;
-            
-             
-            if (xPxl > LED_COL){
+
+            if (xPxl > LED_COL-1){
                //printf("x position too large \n");
                break;
             }
@@ -99,7 +123,7 @@ static esp_err_t WriteText(text_t *pText)
             {
                uint8_t yPxl = ychr + pText->y;
                
-               if (yPxl > LED_ROW){
+               if (yPxl > LED_ROW-1){
                   //printf("y position too large \n");
                   break;
                }
@@ -122,61 +146,188 @@ static esp_err_t WriteText(text_t *pText)
    return err;  
 }
 
+/**
+ * @brief 
+ * 
+ * @param pTextScroll 
+ * @return esp_err_t 
+ */
+static esp_err_t ScrollText(textScroll_t *pTextScroll)
+{
+   esp_err_t err= ESP_OK;
+   return err;
+}
+
+/**
+ * @brief 
+ * 
+ * @param pText 
+ * @return esp_err_t 
+ */
+static esp_err_t FadeOutText(textFade_t *pText)
+{
+   esp_err_t err= ESP_OK;
+
+   err = WriteText(pText);
+   FastLED.show();
+
+   for (uint16_t cnt = 0 ; cnt < 255 ;cnt++)
+   {
+      for (uint16_t led=0; led < (NUM_LEDS); led++)
+      {
+         gLeds[(uint8_t)led].fadeToBlackBy(pText->fade);
+      }
+      FastLED.show();
+      vTaskDelay(pdMS_TO_TICKS(20));
+   }
+   return err;
+}
+
+/**
+ * @brief 
+ * 
+ * @return esp_err_t 
+ */
+#define SATURATION 150
+#define MIN_BRIGHTNESS 0
+#define MAX_BRIGHTNESS 200
+#define SATURATION 150
+#define MIN_SAT 0
+#define MAX_SAT 255
+
+static esp_err_t LEDSignIntro(void)
+{
+   text_t myTest;
+   esp_err_t err;
+   
+   myTest.colour = CRGB(0,10,0);
+   myTest.font = fontLookup(font5x7);
+   myTest.string = "203451";
+   myTest.x = 0;
+   myTest.y = 1;
+    
+   printf("Green \n");
+   gLeds[0] = CRGB::Green;
+   FastLED.show();
+
+   vTaskDelay(pdMS_TO_TICKS(500));
+
+   printf("Red \n");
+   gLeds[0] = CRGB::Red;
+   FastLED.show();
+
+   vTaskDelay(pdMS_TO_TICKS(500));
+
+   printf("Blue \n");
+   gLeds[0] = CRGB::Blue;
+   FastLED.show();
+
+   /*
+    * Fade from White to colour
+    */
+   for (uint8_t sat = MIN_SAT ; sat < MAX_SAT ;sat ++)
+   {
+      for (uint16_t led=0; led < (NUM_LEDS); led++)
+      {
+         gLeds[(uint8_t)led] = CHSV((uint8_t)led, sat, MAX_BRIGHTNESS);
+      }
+      FastLED.show();
+      vTaskDelay(pdMS_TO_TICKS(10));
+   }
+
+   vTaskDelay(pdMS_TO_TICKS(1000));
+   
+   /*
+    * Fade from light to dark
+    */
+   for (uint8_t fade = MAX_BRIGHTNESS ; fade != MIN_BRIGHTNESS ;fade--)
+   {
+      for (uint16_t led=0; led < (NUM_LEDS); led++)
+      {
+         gLeds[(uint8_t)led].fadeToBlackBy(1);
+      }
+      FastLED.show();
+      vTaskDelay(pdMS_TO_TICKS(20));
+   }
+      
+   /* 
+    * Display K&I Smart Sign
+    */
+   #define TILE_WORD_CNT   3u
+   const char *title[TILE_WORD_CNT] ={"K&I", "SMART", "SING"};
+   textFade_t txtFade;
+
+   txtFade.font = fontLookup(font5x7);
+   txtFade.x = 0u;
+   txtFade.y = 1u;
+   txtFade.colour = CRGB::White;
+   txtFade.fade = 2u;
+
+   for (uint8_t wrd = 0 ;wrd < TILE_WORD_CNT ; wrd++ )
+   {
+      txtFade.string = title[wrd];
+      err = FadeOutText(&txtFade);
+   }
+   FastLED.clear();
 
 
+   /*
+    * Scroll some pretend text
+    */
+   myTest.string = "203451";
+
+   for(;;)
+   {
+      for (uint8_t i = 32; i>1 ; i--)
+      {
+         myTest.x = i;
+         WriteText(&myTest);
+         FastLED.show();
+         vTaskDelay(pdMS_TO_TICKS(100));
+         FastLED.clear();
+         //vTaskDelay(pdMS_TO_TICKS(100));
+      }
+   
+      vTaskDelay(pdMS_TO_TICKS(5000));
+
+      for (int8_t i = 1; i < 10; i++)
+      {
+         myTest.y = i;
+         myTest.colour = CRGB(10,0,0);
+         WriteText(&myTest);
+         FastLED.show();
+         vTaskDelay(pdMS_TO_TICKS(100));
+         FastLED.clear();
+         //vTaskDelay(pdMS_TO_TICKS(100));
+      }
+   
+      myTest.colour = CRGB(0,0,10);
+      myTest.y = 1;
+   }
+}
+
+/**
+ * @brief 
+ * 
+ * @param pvParameters 
+ */
 static void LedDisplayTask(void *pvParameters) 
 {
  
    ledDisplayQNFO_t ledDisplayNFo;
-   text_t myTest;
+   esp_err_t err;
    
-   myTest.colour = CRGB::BlueViolet;
-   myTest.font = fontLookup(font5x7);
-   myTest.string = "203451";
-   myTest.x = 2;
-   myTest.y = 4;
+   // myTest.colour = CRGB(0,10,0);
+   // myTest.font = fontLookup(font5x7);
+   // myTest.string = "203451";
+   // myTest.x = 0;
+   // myTest.y = 1;
 
-    printf("LED Display Task Started \n");
-    printf("------------------------\n\n");
+   printf("LED Display Task Started \n");
+   printf("------------------------\n\n");
 
-    printf("Green \n");
-    gLeds[0] = CRGB::Green;
-    FastLED.show();
-
-    vTaskDelay(pdMS_TO_TICKS(500));
-
-    printf("Red \n");
-    gLeds[0] = CRGB::Red;
-    FastLED.show();
-
-
-    vTaskDelay(pdMS_TO_TICKS(500));
-
-    printf("Blue \n");
-    gLeds[0] = CRGB::Blue;
-    FastLED.show();
-
-   for(;;){
-   for (uint8_t i= 0; i<32;i++)
-   {
-      myTest.x = i;
-      WriteText(&myTest);
-      FastLED.show();
-      //vTaskDelay(pdMS_TO_TICKS(2));
-      FastLED.clear();
-      vTaskDelay(pdMS_TO_TICKS(100));
-   }
-   for (uint8_t i = 32; i>1;i--)
-   {
-      myTest.x = i;
-      WriteText(&myTest);
-      FastLED.show();
-      //vTaskDelay(pdMS_TO_TICKS(2));
-      FastLED.clear();
-      vTaskDelay(pdMS_TO_TICKS(100));
-   }}
+   err = LEDSignIntro();
    
-
     while(1)
     {
          if  (pdPASS ==  xQueueReceive(gLedQueue, &ledDisplayNFo,(TickType_t) pdMS_TO_TICKS(1000)) )
